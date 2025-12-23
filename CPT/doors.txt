@@ -1,0 +1,126 @@
+Perfect! Here are the **customized JavaScript scripts** for all four doors in your Packet Tracer lab. You can paste each into the **Programming tab** of the corresponding IoT Door.
+
+---
+
+# **1️⃣ Main Entrance (IoT9)**
+
+```javascript
+// Allowed RFID cards for Main Entrance
+var allowedCards = ["RFID_Security", "RFID_LabTech", "RFID_Lecturer", "RFID_Student", "RFID_Visitor"];
+
+function unlockDoor(cardName) {
+    if (allowedCards.includes(cardName)) {
+        syslog.log("Access granted for " + cardName + " at Main Entrance (IoT9) on " + new Date().toLocaleString());
+        device.doorLock = false;
+        device.sendMessage("SecurityPC", cardName + " accessed Main Entrance (IoT9)");
+    } else {
+        syslog.log("Unauthorized access attempt by " + cardName + " at Main Entrance (IoT9) on " + new Date().toLocaleString());
+        device.doorLock = true;
+        device.sendMessage("SecurityPC", "Unauthorized access attempt by " + cardName + " at Main Entrance (IoT9)");
+    }
+}
+
+device.onCardScanned = function(card) {
+    unlockDoor(card.name);
+};
+```
+
+---
+
+# **2️⃣ Laboratory (IoT10)**
+
+```javascript
+// Allowed RFID cards for Laboratory
+var allowedCards = ["RFID_Security", "RFID_LabTech", "RFID_Lecturer", "RFID_Student"];
+
+function unlockDoor(cardName) {
+    if (allowedCards.includes(cardName)) {
+        syslog.log("Access granted for " + cardName + " at Laboratory (IoT10) on " + new Date().toLocaleString());
+        device.doorLock = false;
+        device.sendMessage("SecurityPC", cardName + " accessed Laboratory (IoT10)");
+    } else {
+        syslog.log("Unauthorized access attempt by " + cardName + " at Laboratory (IoT10) on " + new Date().toLocaleString());
+        device.doorLock = true;
+        device.sendMessage("SecurityPC", "Unauthorized access attempt by " + cardName + " at Laboratory (IoT10)");
+    }
+}
+
+device.onCardScanned = function(card) {
+    unlockDoor(card.name);
+};
+```
+
+---
+
+# **3️⃣ Equipment Room (IoT11)**
+
+```javascript
+// Allowed RFID cards for Equipment Room
+var allowedCards = ["RFID_Security", "RFID_LabTech"];
+
+function unlockDoor(cardName) {
+    if (allowedCards.includes(cardName)) {
+        syslog.log("Access granted for " + cardName + " at Equipment Room (IoT11) on " + new Date().toLocaleString());
+        device.doorLock = false;
+        device.sendMessage("SecurityPC", cardName + " accessed Equipment Room (IoT11)");
+    } else {
+        syslog.log("Unauthorized access attempt by " + cardName + " at Equipment Room (IoT11) on " + new Date().toLocaleString());
+        device.doorLock = true;
+        device.sendMessage("SecurityPC", "Unauthorized access attempt by " + cardName + " at Equipment Room (IoT11)");
+    }
+}
+
+device.onCardScanned = function(card) {
+    unlockDoor(card.name);
+};
+```
+
+---
+
+# **4️⃣ Server Room (IoT12)**
+
+```javascript
+// Allowed RFID cards for Server Room
+var allowedCards = ["RFID_Security"];
+
+function unlockDoor(cardName) {
+    if (allowedCards.includes(cardName)) {
+        syslog.log("Access granted for " + cardName + " at Server Room (IoT12) on " + new Date().toLocaleString());
+        device.doorLock = false;
+        device.sendMessage("SecurityPC", cardName + " accessed Server Room (IoT12)");
+    } else {
+        syslog.log("Unauthorized access attempt by " + cardName + " at Server Room (IoT12) on " + new Date().toLocaleString());
+        device.doorLock = true;
+        device.sendMessage("SecurityPC", "Unauthorized access attempt by " + cardName + " at Server Room (IoT12)");
+    }
+}
+
+device.onCardScanned = function(card) {
+    unlockDoor(card.name);
+};
+```
+
+---
+
+### **Instructions to Use in Packet Tracer**
+
+1. Click on the corresponding IoT Door (IoT9, IoT10, IoT11, IoT12).
+2. Go to the **Programming tab** → **Edit**.
+3. Paste the relevant script.
+4. Click **Save** → **Run**.
+5. Repeat for all 4 doors.
+
+---
+
+Once these scripts are running, the doors will:
+
+* Unlock for allowed RFID cards
+* Log all access attempts to **Syslog** with timestamps
+* Send **alerts to Security PC** for unauthorized access
+
+---
+
+If you want, the next step is I can **guide you to set up the Syslog server, Security PC, and network VLANs**, so the logging and alerts actually work in real time.
+
+Do you want to do that next?
+

@@ -1,0 +1,459 @@
+Aircrack-ng is a comprehensive suite of tools designed for assessing Wi-Fi network security, primarily used for monitoring, attacking, testing, and cracking wireless network passwords It is widely utilized in penetration testing and network forensics to evaluate the strength of wireless encryption protocols such as WEP, WPA, and WPA2 The suite operates via command-line utilities, enabling automation and scripting for advanced users
+
+### Overview of Aircrack-ng Functionality
+
+The primary purpose of Aircrack-ng is to recover wireless network keys by exploiting weaknesses in the authentication process. It supports cracking both WEP and WPA/WPA2-PSK (Pre-Shared Key) networks, though the methodologies differ significantly between the two For WEP, statistical attacks are possible due to inherent flaws in the protocol, allowing recovery of the key from captured Initialization Vectors (IVs) In contrast, WPA/WPA2 cracking relies solely on brute-force or dictionary-based attacks against the 4-way handshake, as the protocol does not allow statistical shortcuts
+
+### Step-by-Step Guide to Using Aircrack-ng
+
+#### **Stage 1: Configure the Wireless Adapter**
+To begin, ensure your wireless network adapter supports monitor mode and packet injection—critical capabilities for capturing and transmitting raw 802.11 frames. Most built-in adapters lack full support, so an external USB Wi-Fi adapter with compatible chipsets (e.g., Atheros AR9271) is recommended
+
+Start by identifying your wireless interface:
+```bash
+ifconfig
+```
+or
+```bash
+iwconfig
+```
+Typically, the interface appears as `wlan0` or similar
+
+Enable monitor mode using `airmon-ng`:
+```bash
+sudo airmon-ng start wlan0
+```
+This creates a new interface, usually named `wlan0mon`, capable of capturing all wireless traffic within range
+
+Verify monitor mode is active:
+```bash
+sudo iwconfig wlan0mon
+```
+The output should indicate "Mode: Monitor"
+
+#### **Stage 2: Gather Access Point Information**
+Use `airodump-ng` to scan for nearby access points and connected clients:
+```bash
+sudo airodump-ng wlan0mon
+```
+This displays a list of networks, including BSSID (MAC address), channel, encryption type (e.g., WPA2), and associated clients Identify the target network and note its BSSID and channel.
+
+To focus on a specific network, filter by BSSID and channel:
+```bash
+sudo airodump-ng -c 6 --bssid 00:14:6C:7E:40:80 -w capture wlan0mon
+```
+This command captures packets on channel 6, filters for the specified BSSID, and saves data to a file named `capture-01.cap`
+
+#### **Stage 3: Deauthenticate a Client**
+To capture the WPA/WPA2 4-way handshake, force a connected client to re-authenticate by sending deauthentication packets using `aireplay-ng`:
+```bash
+sudo aireplay-ng -0 5 -a 00:14:6C:7E:40:80 -c 00:0F:B5:FD:FB:C2 wlan0mon
+```
+Here, `-0 5` sends five deauthentication frames, `-a` specifies the AP’s BSSID, and `-c` targets a specific client’s MAC address This triggers the client to reconnect, allowing you to capture the handshake.
+
+#### **Stage 4: Capture the 4-Way Handshake**
+While running `airodump-ng` with filtering, watch for the message “WPA handshake: [BSSID]” in the top-right corner of the screen This confirms successful capture of the handshake, which is essential for cracking WPA/WPA2 passwords
+
+If no handshake appears, repeat the deauthentication step or wait passively for a client to connect naturally
+
+#### **Stage 5: Perform the Cracking Attack**
+Once the handshake is captured, use `aircrack-ng` with a wordlist to attempt decryption:
+```bash
+aircrack-ng -w password.lst capture-01.cap
+```
+The `-w` flag specifies the dictionary file, and the `.cap` file must contain the handshake Aircrack-ng tests each password in the list against the handshake until a match is found or the list is exhausted
+
+For improved performance, especially with large dictionaries, consider using `airolib-ng` to precompute Pairwise Master Keys (PMKs):
+```bash
+airolib-ng mydb --import passwd wordlist.txt
+airolib-ng mydb --batch
+aircrack-ng -r mydb capture-01.cap
+```
+This method accelerates cracking by eliminating repeated PBKDF2 computations
+
+Alternatively, integrate with `hashcat` for GPU-accelerated attacks using the HCCAPX format:
+```bash
+cap2hccapx.bin capture-01.cap capture.hccapx
+hashcat -m 2500 capture.hccapx wordlist.txt
+```
+
+### Key Command Options in Aircrack-ng
+
+| Option | Purpose |
+|-------|--------|
+| `-a 2` | Force WPA-PSK attack mode |
+| `-b` | Target AP by BSSID |
+| `-w` | Path to wordlist file |
+| `-r` | Use precomputed PMK database |
+| `-j` | Output in Hashcat-compatible HCCAPX format |
+| `-p` | Limit number of CPU cores used |
+
+These options can be combined for fine-tuned control over the cracking process
+
+### Common Issues and Troubleshooting
+
+- **"0 handshakes" or "No valid WPA handshakes found"**: Ensure a client reconnects after deauthentication. Verify that the capture file contains the handshake by reopening it with `airodump-ng` or checking the summary
+- **Interface not entering monitor mode**: Confirm driver compatibility and apply necessary patches for injection support
+- **Unable to inject packets**: Some environments (e.g., virtual machines) may restrict low-level radio operations. Use a native Linux system with supported hardware
+
+### Ethical and Legal Considerations
+
+It is crucial to emphasize that using Aircrack-ng to access networks without explicit permission is illegal and unethical The tool should only be used for authorized security assessments, penetration testing, or educational purposes on networks you own or have been granted permission to test
+
+### Supported Platforms and Installation
+
+Aircrack-ng is available on various platforms, including Kali Linux (where it is pre-installed), FreeBSD, and Windows (via Cygwin or MSYS2) On Kali, install via:
+```bash
+sudo apt install aircrack-ng
+```
+For source compilation, use Autotools:
+```bash
+./autogen.sh
+./configure
+make
+sudo make install
+```
+AirPCAP support on Windows requires additional SDK integration
+
+### Summary of Aircrack-ng Tools
+
+| Tool | Function |
+|------|---------|
+| `airmon-ng` | Enable monitor mode |
+| `airodump-ng` | Capture packets and monitor networks |
+| `aireplay-ng` | Inject packets (e.g., deauth) |
+| `aircrack-ng` | Crack WEP/WPA keys |
+| `airolib-ng` | Manage precomputed PMK databases |
+| `airdecap-ng` | Decrypt capture files with known key |
+| `cap2hccapx` | Convert capture to Hashcat format |
+
+These tools work together to provide a complete workflow for wireless security assessment
+
+| **Tool** | **Primary Use** | **Example Command** |
+|---------|------------------|------------------------|
+| `airmon-ng` | Enable monitor mode | `sudo airmon-ng start wlan0` |
+| `airodump-ng` | Capture handshake | `sudo airodump-ng -c 6 --bssid [BSSID] -w out wlan0mon` |
+| `aireplay-ng` | Deauthenticate client | `sudo aireplay-ng -0 5 -a [BSSID] -c [Client] wlan0mon` |
+| `aircrack-ng` | Crack password | `aircrack-ng -w dict.txt out-01.cap` |
+| `airolib-ng` | Precompute PMKs | `airolib-ng db --import passwd words.txt && airolib-ng db --batch` |
+| `airdecap-ng` | Decrypt traffic | `airdecap-ng -e SSID -p passphrase capture.cap` |
+
+
+
+To find client MAC addresses using `airodump-ng`, you first need to put your wireless network interface into monitor mode using `airmon-ng`  Once in monitor mode, you can use `airodump-ng` to scan for nearby wireless networks and connected clients.
+
+Start by running `airodump-ng` on your monitor interface to discover access points:
+
+```bash
+airodump-ng wlan0mon
+```
+
+This command displays a list of access points (APs) and their details, including the BSSID (MAC address of the AP), channel, and encryption type  Below the list of APs, you will see a section labeled "STATION" which lists the MAC addresses of connected wireless clients  Each client entry shows the MAC address of the client device and, to its left, the BSSID of the AP it is associated with 
+
+To focus on a specific network and capture more detailed information, including client activity, target a specific AP by its BSSID and channel:
+
+```bash
+airodump-ng -c <channel> --bssid <AP_MAC> -w output wlan0mon
+```
+
+Replace `<channel>` with the AP's operating channel and `<AP_MAC>` with its BSSID  This command filters traffic to that AP, making it easier to identify and monitor connected clients  The client MAC addresses will appear in the "STATION" section of the output 
+
+You can also use the `-a` option to display only clients that are associated with an access point  Tools like Kismet or Wireshark can alternatively be used for similar purposes 
+
+
+
+
+The "No such BSSID available" error in `aireplay-ng` during a deauthentication attack typically occurs when the tool cannot detect a beacon frame from the target access point (AP), even though `airodump-ng` can see the network This issue can stem from several causes, including incorrect channel settings, interface conflicts, or driver-related problems.
+
+One common cause is that the wireless interface is not locked to the correct channel as the target AP. To resolve this, run `airodump-ng` with the `-c` parameter to specify the channel, which helps `aireplay-ng` detect the BSSID For example:
+
+```
+airodump-ng --bssid [BSSID] -c [channel] wlan0
+```
+
+Another frequent solution is using the `-D` flag with `aireplay-ng`, which disables AP detection and skips the requirement to receive a beacon frame before sending deauthentication packets This is particularly useful for 5GHz networks where beacon detection may fail despite the AP being visible in `airodump-ng` The command would look like:
+
+```
+aireplay-ng --deauth 0 -a [BSSID] -D wlan0
+```
+
+Additionally, ensure the wireless interface is properly in monitor mode and disable the parent interface (e.g., `wlan0`) before starting the attack, as active interfaces can interfere with packet injection Use:
+
+```
+ifconfig wlan0 down
+```
+
+before enabling monitor mode Running `airmon-ng check kill` can also help by stopping background processes like NetworkManager or `wpa_supplicant` that may conflict with wireless operations
+
+Some users report success by setting the interface to the correct channel manually using `iwconfig wlan0mon channel [X]` before launching the attack Also, verify that your wireless adapter supports packet injection on 5GHz bands, as some hardware or driver combinations (e.g., RTL8812AU on non-Linux systems) may have limitations despite supporting monitor mode
+
+If targeting a specific client, include the `-c [client MAC]` option in the `aireplay-ng` command, as directed deauthentication to a connected client can be more effective
+
+
+
+
+Wordlists in Kali Linux are essential tools used in penetration testing, password cracking, and web application security assessments. They contain collections of commonly used passwords, usernames, directory names, and other strings that help security professionals identify weak credentials or discover hidden resources on a target system. Kali Linux comes with several pre-installed wordlists, and users can generate custom ones or install additional collections for more comprehensive testing.
+
+### Built-in Wordlists in Kali Linux
+
+Kali Linux includes a default package called `wordlists` that contains the well-known **rockyou.txt** wordlist, which is derived from a real-world data breach and contains over 14 million passwords This file is compressed by default as `rockyou.txt.gz` and must be extracted before use The wordlists are stored in the `/usr/share/wordlists/` directory To access them:
+
+1. Navigate to the directory:
+   ```bash
+   cd /usr/share/wordlists/
+   ```
+
+2. List the available wordlists:
+   ```bash
+   ls -lh
+   ```
+
+3. Extract the rockyou.txt file:
+   ```bash
+   sudo gunzip rockyou.txt.gz
+   ```
+   The `sudo` command may be required to avoid permission issues
+
+After extraction, `rockyou.txt` will be a 134 MB uncompressed file containing a vast array of real-world passwords, making it highly effective for password cracking attempts
+
+In addition to `rockyou.txt`, the `/usr/share/wordlists/` directory contains symbolic links to other useful wordlists from various tools, such as:
+- `dirb/common.txt` – for directory brute-forcing with DirBuster or Dirb
+- `metasploit/default_passwords.txt` – default credentials for services
+- `nmap.lst` – common passwords used by Nmap scripts
+- `fasttrack.txt` – used by the Social-Engineer Toolkit (SET)
+- `seclists` – a comprehensive collection of security-related wordlists, often installed via the `seclists` package
+
+You can install the `wordlists` package using:
+```bash
+sudo apt install wordlists
+```
+This ensures all standard wordlists are available on your system
+
+### Using Wordlists with Password Cracking Tools
+
+#### John the Ripper
+John the Ripper is a powerful password cracking tool that supports various hash types and can use wordlists with or without mangling rules. To use a wordlist with John:
+
+```bash
+john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt
+```
+This command attempts to crack the hashes in `hash.txt` using the rockyou wordlist You can also apply mangling rules (e.g., capitalization, leet speak) to increase the effectiveness:
+```bash
+john --wordlist=/usr/share/wordlists/rockyou.txt --rules hash.txt
+```
+
+John supports multiple hash formats, including MD5, SHA, NTLM, and bcrypt, and can automatically detect the hash type in many cases
+
+#### Hashcat
+Although not explicitly detailed in the provided context, Hashcat is another widely used tool that works seamlessly with Kali’s wordlists. Example usage:
+```bash
+hashcat -m 0 hash.txt /usr/share/wordlists/rockyou.txt
+```
+
+### Generating Custom Wordlists
+
+Kali Linux provides tools to generate custom wordlists tailored to specific targets or scenarios.
+
+#### Crunch
+`crunch` is a built-in tool that generates wordlists based on character sets and patterns It is useful for creating brute-force or targeted dictionaries.
+
+Basic syntax:
+```bash
+crunch <min> <max> <charset> -o output.txt
+```
+
+Example: Generate all 4-digit PINs:
+```bash
+crunch 4 4 0123456789 -o pins.txt
+```
+
+You can define custom character sets or use built-in ones (e.g., `%` for symbols, `@` for lowercase, `^` for uppercase) Patterns can also be used:
+```bash
+crunch 8 8 -t %^@@@@ -o custom.txt
+```
+This creates 8-character passwords with a symbol, uppercase letter, and five lowercase letters
+
+Crunch supports advanced features like avoiding repeated characters (`-p`), combining character sets (`-c`), and generating permutations
+
+#### CeWL
+The **CeWL (Custom Word List generator)** tool scrapes words from a target website to create a custom dictionary based on the site’s content This is useful for targeted password attacks.
+
+Example:
+```bash
+cewl https://example.com -d 3 -m 5 -w custom_words.txt
+```
+This spiders the site up to depth 3 and collects words with a minimum length of 5 characters
+
+#### RSMangler
+`rsmangler` manipulates existing wordlists by applying transformations such as leet speak, reversing, capitalization, appending years, or adding common suffixes like "123" It can also generate permutations and acronyms from input words.
+
+Example:
+```bash
+cat words.txt | rsmangler -m 6 -x 8 --file - > mangled.txt
+```
+This takes words from `words.txt`, applies various mangling rules, and outputs a new list with words between 6 and 8 characters long
+
+### Using Wordlists in Web Enumeration
+
+Tools like **Dirb**, **Gobuster**, and **wfuzz** use wordlists to discover hidden directories and files on web servers.
+
+Example with Dirb:
+```bash
+dirb http://target.com /usr/share/wordlists/dirb/common.txt
+```
+This scans the target using the common directory names from the wordlist
+
+Gobuster and wfuzz support similar functionality and can use any text-based wordlist.
+
+### Installing Additional Wordlists
+
+The `seclists` package is a comprehensive collection of wordlists for various purposes (e.g., usernames, passwords, URLs, fuzzing payloads). Install it with:
+```bash
+sudo apt install seclists
+```
+This places the lists in `/usr/share/seclists/`, and symbolic links are often created in `/usr/share/wordlists/` for easy access
+
+### Best Practices and Tips
+
+- **Storage and Performance**: Wordlists like `rockyou.txt` are large; ensure sufficient disk space and consider using SSDs for faster read operations.
+- **Targeted Wordlists**: Use CeWL or Crunch to generate focused lists based on target information (e.g., company name, employee names).
+- **Mangling Rules**: Combine wordlists with tools like `rsmangler` or John’s rules to increase coverage.
+- **Avoid Overuse**: Large wordlists can be inefficient; filter or sort them using `sort`, `uniq`, or `grep` to remove duplicates or irrelevant entries.
+- **Legal and Ethical Use**: Always use wordlists with proper authorization during penetration tests.
+
+---
+
+### Summary of Key Tools and Commands
+
+| Tool | Purpose | Example Command |
+|------|-------|----------------|
+| `wordlists` package | Provides `rockyou.txt` and other default lists | `sudo apt install wordlists` |
+| `crunch` | Generate custom wordlists | `crunch 4 4 0123456789 -o pins.txt` |
+| `john` | Password cracking with wordlists | `john --wordlist=rockyou.txt hash.txt` |
+| `rsmangler` | Mangle and expand wordlists | `rsmangler --file words.txt --leet --years` |
+| `cewl` | Scrape website for custom wordlist | `cewl https://example.com -w words.txt` |
+| `dirb` | Directory brute-forcing | `dirb http://target.com /usr/share/wordlists/common.txt` |
+| `seclists` | Additional security wordlists | `sudo apt install seclists` |
+
+These tools and practices make Kali Linux a powerful platform for ethical hacking and security testing, with wordlists playing a central role in identifying vulnerabilities
+
+
+
+Piping in Kali Linux follows the same principles as in any Unix-like operating system, allowing users to redirect the output of one command as input to another, enabling efficient data processing and command chaining This functionality is essential for streamlining complex operations in the terminal, particularly in a penetration testing and security-focused environment like Kali Linux.
+
+### Understanding Pipes in Kali Linux
+
+A **pipe** is a form of redirection that connects the standard output (stdout) of one command to the standard input (stdin) of another The pipe operator is represented by the vertical bar symbol `|`. This allows multiple commands to be combined into a single line, where data flows unidirectionally from left to right through the pipeline
+
+The general syntax for piping is:
+
+```
+command_1 | command_2 | command_3 | ... | command_N
+```
+
+Each command in the sequence processes the data passed from the previous one, eliminating the need for temporary files and improving efficiency
+
+### Common Use Cases and Examples
+
+1. **Filtering File Listings**  
+   To list all files in the current directory and filter for those containing "file.txt" in their name:
+   ```
+   ls | grep file.txt
+   ```
+   Here, `ls` outputs the list of files, and `grep` filters the results to show only matching entries
+
+2. **Paginating Long Output**  
+   When listing files with detailed information using `ls -l`, the output may be too long to view at once. Using `more` or `less` allows viewing one screen at a time:
+   ```
+   ls -l | more
+   ```
+   This pipes the output of `ls -l` into `more`, which displays it page by page
+
+3. **Sorting and Extracting Unique Entries**  
+   To sort the contents of a file and display only unique lines:
+   ```
+   sort record.txt | uniq
+   ```
+   The `sort` command arranges lines alphabetically, and `uniq` removes duplicate adjacent lines
+
+4. **Extracting Specific Line Ranges**  
+   To print lines 3 to 7 from a file:
+   ```
+   cat sample2.txt | head -7 | tail -5
+   ```
+   First, `head -7` retrieves the first 7 lines, then `tail -5` extracts the last 5 of those, effectively printing lines 3 through 7
+
+5. **Counting Matching Patterns**  
+   To count how many times a specific name appears in a file:
+   ```
+   cat result.txt | grep "Rajat Dua" | tee file2.txt | wc -l
+   ```
+   This command searches for "Rajat Dua", saves the matches to `file2.txt` using `tee`, and counts the number of matching lines with `wc -l`
+
+6. **Redirecting Piped Output to a File**  
+   The final output of a pipeline can be saved to a file using the `>` redirection operator:
+   ```
+   ls | grep 'file' > geeks.txt
+   ```
+   This saves the filtered list of files containing "file" in their name to `geeks.txt`
+
+### Advanced: Named Pipes (FIFOs)
+
+In addition to anonymous (unnamed) pipes created on-the-fly, Kali Linux supports **named pipes**, also known as FIFOs (First In, First Out). These are persistent special files that allow inter-process communication across different shell sessions
+
+To create a named pipe:
+```bash
+mkfifo /tmp/testpipe
+```
+or equivalently:
+```bash
+mknod pipe2 p
+```
+
+
+Once created, you can write to and read from the named pipe in separate terminal sessions:
+- In one terminal:  
+  ```bash
+  ls > /tmp/testpipe
+  ```
+- In another terminal:  
+  ```bash
+  cat /tmp/testpipe
+  ```
+The reading terminal will display the output of `ls` once it is written to the pipe
+
+Using `ls -l`, you can verify the named pipe's existence and type—the first character in the permissions string will be `p`, indicating a pipe:
+```bash
+prw-r--r-- 1 user user 0 Oct 7 21:17 /tmp/testpipe
+```
+
+
+Named pipes persist until deleted with `rm` or until the system is rebooted, depending on where they are created (e.g., `/tmp` may be cleared on reboot)
+
+### Typing the Pipe Symbol on Keyboards
+
+Some users may encounter difficulty typing the `|` symbol, especially on certain laptop keyboards (e.g., Lenovo Yoga, Toshiba, ASUS) where `Shift + \` produces `<` or `>` instead Common solutions include:
+
+- **Standard Method**: `Shift + \` (backslash key, usually near Enter)
+- **Alternative Method**: `Ctrl + ~` (on some Lenovo models)
+- **Using AltGr**: `AltGr + |` or `AltGr + ¦` (broken bar)
+- **Unicode Input**: Press `Ctrl + Shift + u`, then type `7c` (hex code for `|`), and press Enter
+
+Note: The `¦` (broken bar, Unicode `A6`) may not function correctly in shell scripts and should be avoided in favor of the solid vertical bar `|` (`U+007C`)
+
+### Summary of Key Commands and Concepts
+
+| Concept | Command/Usage | Description |
+|--------|---------------|-----------|
+| Anonymous Pipe | `cmd1 | cmd2` | Chains output of `cmd1` to input of `cmd2` |
+| Redirect Output | `cmd > file` | Saves output to a file |
+| Named Pipe Creation | `mkfifo pipename` | Creates a persistent FIFO file |
+| View Pipe Details | `ls -l pipename` | Shows pipe type (`p`) and permissions |
+| Unicode Input | `Ctrl+Shift+u`, then `7c` | Types `|` using Unicode entry |
+
+Pipes are a powerful feature in Kali Linux, enabling efficient command composition, real-time data processing, and automation of complex workflows—critical capabilities for security professionals and system administrators
+
+
+
+
+
